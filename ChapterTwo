@@ -1,0 +1,138 @@
+第二章 微服务构建：Spring Boot
+
+       框架简介
+         Spring Boot并非重写或者替代Spring，而是通过设计大量的自动化配置等方式来简化Spring原有样板化的配置，使得开发者可以快速构建应用。
+         除了解决配置问题之外，Spring Boot还通过一系列Starter POMs的定义，让我们整合各项功能的时候，不需要在Maven的pom.xml中维护错综复杂的依赖关系。
+         Spring Boot除了可以很好融入Docker之外，其自身就支持嵌入式的Tomcat、Jetty等容器。
+       
+       
+       快速入门
+       
+          项目构建与解析
+            系统及工具版本要求
+              Java7及以上版本
+              Spring Framework4.2.7及以上版本
+              Maven3.2及以上版本 /Gradle 1.12及以上版本
+            构建maven项目
+              1.通过官方的Spring Initializr工具来产生基础项目。
+              2.访问http://start.spring.io/，
+              3.选择构建工具Maven Project、Spring Boot版本选择1.3.7，填写Group和Artifact信息，在Search for dependencies中搜索需要的其他依赖包，
+                因要实现RESTful API，所以添加web依赖。
+              4.单机Generate Project按钮下载项目压缩包。
+              5.解压项目包，并用IDE以Maven项目导入，以IntelliJ IDEA 14为例。
+              6.从菜单中选择File--》New--》project from Existing Source......
+              7.选择解压后的项目文件夹，确认。
+              8.单机Import project from external model并选择Maven，单机Next至结束。
+              9.选择Java 7以上的JDK
+            
+          
+          实现RESTful API
+            新建对应RESTful API接口，并启动应用访问地址，得到预期返回接口。
+            
+            Spring Boot启动方式：
+              直接main函数启动；
+              spring boot插件，执行mvn spring-boot：run命令，或者直接单击IDE中对Maven插件的工具。
+              在服务器上部署运行，通常先使用mvn install 将应用打包成jar包，再通过java -jar xxx.jar来启动应用。
+          
+          
+        配置详解
+        
+          配置文件
+            Spring Boot的默认配置文件位置为 src/main/resources/application.properties。可以定义端口号，数据库，日志级别。
+            
+            Spring Boot的配置文件除了可以使用传统的properties文件之外，还支持现在被广泛推荐使用的YAML文件。
+              
+              YAML采用的配置格式是类似大纲的缩进形式来表示。
+                      environments:
+                           dev:
+                              url: http://dev.bar.com
+                              name: Developer Setup
+                           prod:
+                              url: http://foo.bar.com
+                              name: My Cool App
+              与其等价的properties配置如下：
+                  environments.dev.url=http://dev.bar.com
+                  environments.dev.name=Developer Setup
+                  environments.prod.url=http://foo.bar.com
+                  environments.prod.name=http://dev.bar.com
+          
+          
+          自定义参数
+             Spring Boot的配置文件中设置各个Starter 模块中预定义的配置属性，也可以在配置文件中定义需要的自定义属性。如在application.properties
+             中添加：
+                   book.name=SpringCloudInAction
+                   book.author=SpringCloud
+              在应用中可以通过@Value注解来加载这些自定义参数。如：
+                   
+                   @Value（"${book.name}")
+                   private String name;
+                 
+          
+          使用随机数
+              #随机字符串
+              com.displace.value=${random.value}
+              #随机int
+              com.displace.value=${random.int}
+              #随机范围内数
+              com.displace.value=${random.int(10)}
+          
+          命令行参数
+              在使用命令行启动Spring Boot应用，连续两个减号--即为对属性进行复制的标识。如：java -jar xxx.jar--server.port=8888等价在
+              在application.properties中添加属性server.port=8888
+          
+          多环境配置
+              在Spring Boot中，多环境配置的文件名需满足application-{profile}.properties的格式,其中{profile}对应环境标识，如：
+                  application-dev.propertiest
+                  application-test.propertiest
+                  application-prod.propertiest
+              至于加载哪一个配置文件，需在application.properties文件中通过spring.profiles.active属性来设置，其值对应文件夹中的{profile}值。
+              如spring.profiles.activ=test就会加载appliaction-test.properties配置。
+              
+          加载顺序
+             为了能够更合理地重写各属性的值，Spring Boot使用了如下的属性加载顺序：
+             
+               1.在命令行红传入的参数。
+               2.SPRING_APPLICATION_JSON中的属性。SPRING_APPLICATION_JSON是以JSON格式配置在系统环境变量中的内容。
+               3.java:comp/env中的JNDI属性
+               4.Java的系统属性，可以通过System.getProperties()获取的内容
+               5.操作系统的环境变量。
+               6.通过random.*配置的随机属性
+               7.位于当前应用jar包外，针对不同{profile}环境的配置文件内容，例如application-{profile}.properties或是YAML定义的配置文件。
+               8.位于当前应用的jar包之内，针对不同{profile}环境的配置文件内容，例如application-{profile}.properties或是YAML定义的配置文件。
+               9.位于当前jar包之外的application.properties和YAML配置内容。
+               10.位于当前应用jar包之内的的application.properties和YAML配置内容。
+               11.在@Configuration注解修改的类中，通过@PropertySource注解定义的属性。
+               12.应用默认属性，使用SpringApplication.setDefaultProperties定义的内容。
+             
+          
+        监控与管理
+          为了让运维系统获取微服务的相关指标和常规操作的控制，需要一套用来植入各个微服务应用的接口监控采集信息。
+        
+        
+          初识actuator
+            Spring Boot应用引入该模块非常简单，只需在pom.xml中添加依赖即可。
+          
+          原生端点
+             1.应用配置类
+               /autoconfig
+               /beans
+               /env
+               /mappings
+               /info
+               
+             2.度量指标类
+               /metrics
+                   /metrics端点可以提供应用状态的完整度量指标报告。更细粒度的度量信息，如/metrics/{name},/metrics/mem.free
+               /health
+               /dump
+               /trace
+             3.操作控制类
+               以上的端点都是用来反映自身属性或运行状态，相对操作控制类端点不那么敏感，所以是默认启用。原生端点中，只提供了一个用来关闭应用的端点
+               /shutdown.可以通过如下配置开启：
+                 endpoints.shutdown.enable=true
+             
+
+
+
+
+
