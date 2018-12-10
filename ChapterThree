@@ -4,18 +4,104 @@
     
       服务治理
          Netflix Eureka
-         
+            服务注册
+             每个服务治理框架中，通常都有一个注册中心，服务单元向注册中心登记自己提供的服务，主要将主机、端口号、版本号、通信协议等附加信息告知注册
+             中心。
+            服务发现
+             在服务治理框架下，服务调用通过发起请求调用实现，但调用方并不知具体服务实例位置，此时需注册中心来提供所有服务实例清单，从而实现对具体的
+             服务实例的访问。
+            Netflix Eure
+             Spring Cloud Eureka使用Netflix Eureka来实现服务注册与发现，它包含服务端和客户端组件，均采用java编写，故Eureka主要适用于通用Java实现
+             的分布式系统或JVM兼容语言构建的系统。
          搭建服务注册中心
+            1.在pom文件中添加相关依赖包；
+            2.通过@EnableEurekaServer注解启动一个服务注册中心提供其他应用进行对话。只需在Srping Boot中的启动类添加注解即可。
+            3.添加配置（禁用将自己作为客户端注册行为）
          
          注册服务提供者
+            1.在pom文件中添加相关依赖包；
+            2.改造相应接口，通过注入DiscoveryClient对象，在日志中打印服务相关内容
+            3.在Spring Boot启动类中添加@EnableDiscoveryClient注解，激活Eureka中的DiscoveryClient实现。
+            4.在application.properties配置文件中，通过spring.application.name属性来为服务命名，并通过eureka.client.serviceUrl.defaultZone属性
+              来指定服务注册中心地址。
          
          高可用注册中心
+            Eureka Server的高可用实际上就是将自己作为服务向其他服务注册中心注册自己，以形成一组互相注册的服务注册中心，来实现服务清单的互相同步，达到
+            高可用效果。
+            1.创建application-peer1.properties，作为peer1服务中心配置，并将ServiceUrl指向peer2：
+                    spring.application.name=eureka-server
+                    server.port=1111
+                    
+                    eureka.instance.hostname=peer1
+                    eureka.client.serviceUrl.defaultZone=http://peer2.1112/eureka/
+            2.创建application-peer2.properties，作为peer2服务中心配置，并将ServiceUrl指向peer1：
+                    spring.application.name=eureka-server
+                    server.port=1112
+                    
+                    eureka.instance.hostname=peer2
+                    eureka.client.serviceUrl.defaultZone=http://peer1.1111/eureka/
+            3.在/etc/hosts 文件中添加对peer1和peer2的转换，让上面的配置host形式的serviceUrl能在本地正确访问
+                    127.0.0.1 peer1
+                    127.0.0.1 peer2
+            4.通过spring.profiles.active属性来分别启动peer1和peer2：
+                    java -jar eureka-server-1.0.0.jar --spring.profiles.active=peer1
+                    java -jar eureka-server-1.0.0.jar --spring.profiles.active=peer2
          
          服务发现与消费
+            服务发现的任务由Eureka的客户端完成，服务消费的任务由Ribbon完成。Ribbon是一个基于HTTP和TCP的客户端负载均衡器，它可以在通过客户端配置的
+            ribbonServerList服务端列表去轮询访问以达到负载均衡的作用。
+            Ribbon与Eureka联合使用，Ribbon的服务实例清单RibbonServerList会被DiscoveryEnableNIWSServerList重写，扩展成从Eureka注册中心获取服务端
+            列表。同事也会用NIWSDiscoveryPing来取代IPing，将职责委托给Eureka来确定服务端是否已经启动。
+            
      Eureka详解
          基础架构
+            服务注册中心：Eureka提供的服务端，提供服务注册与发现的功能，也是前文实现的eureka-server
+            服务提供者：提供服务的应用，可以是spring boot应用，可以是其他技术平台遵循Eureka通信机制的应用。将服务注册到Eureka，供其它应用发现、调用
+            服务消费者：消费者从服务注册中心获取服务列表，从而使消费者可以知道何处调用其所需要的服务。
          
          服务治理机制
+            服务提供者
+                服务注册
+                  服务提供者在启动的时候会以发送REST请求的方式将自己注册到Eureka Server上，同时带有服务的元数据信息。Eureka Server在接受到REST请求
+                  后，将元数据信息存储于一个双层Map中，第一层key为服务名，第二层key为具体服务实例名。
+                  注意：在服务注册时，eureka.client.register-with-eureka=true参数是否正确，默认为true，若为false将不启动注册操作。
+
+                服务同步
+                  由于服务注册中心之间因互相注册为服务，服务提供者发送注册请求到某个服务注册中心时，它会将该请求转发给集群中相连的其他注册中心，从而
+                  实现注册中心之间服务同步。
+
+                服务续约
+                  完成注册后，服务提供者会提供一个维护心跳来告诉Eureka Server，防止Eureka Server的剔除任务。
+                  服务续约两个重要属性：
+                        eureka.instance.lease-renewal-interval-in-seconds=30
+                        eureka.instance.lease-expiration-duration-in-seconds=90
+                    分别用于定义服务续约任务的调用间隔时间，默认为30s，定义服务失效时间，默认为90s
+            服务消费者
+                获取服务
+                  启动服务消费者时，它将发送一个REST请求给服务注册中心，来获取注册的服务清单。出于性能考虑，Eureka Server会维护一份只读服务清单来
+                  返回给客户端，同时该清单每30秒更新一次。
+                
+                服务调用
+                  获取服务清单后，通过服务名可以获取具体提供服务的实例名和该实例的元数据信息。在Ribbon中默认采用轮询方式进行调用，从而实现客户端的
+                  负载均衡。
+                  对于访问实例选择，Eureka 中有Region和Zone的概念，一个Region包含多个Zone，每个服务客户端需要被注册到一个Zone中，所以每个客户端
+                  对应一个Region和一个Zone，进行服务调用时，优先访问同一处Zone中提供的服务，访问不到才访问其他Zone。
+                
+                服务下线
+                  当服务实例进行正常关闭操作，会触发服务下线的REST请求给Eureka Server，告知注册中心。注册中心在接受到请求后，将该服务状态置为下线，
+                  并把该下线事件传播出去。
+            
+            服务注册中心
+                失效剔除
+                  服务注册中心未收到服务下线请求，Eureka Server在启动时会创建一个定时任务，默认每隔固定时间（60s）将当前清单中超时（90s）没有续约的
+                  服务剔除。
+                
+                自我保护
+                  Eureka Server在运行期间，统计心跳失败的比例，在15分钟内是否低于85%，如果低于，Eureka Server会将当前实例注册信息保护起来，让实例
+                  不会国企，尽可能保护注册信息。
+                  eureka.server.enable-self-preservation=false关闭保护机制，确保注册中心可以将不用实例正确剔除。
+                
+                
          
          源码分析
      
