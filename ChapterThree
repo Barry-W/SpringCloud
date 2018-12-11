@@ -41,7 +41,7 @@
                     eureka.instance.hostname=peer2
                     eureka.client.serviceUrl.defaultZone=http://peer1.1111/eureka/
             3.在/etc/hosts 文件中添加对peer1和peer2的转换，让上面的配置host形式的serviceUrl能在本地正确访问
-                    127.0.0.1 peer1
+                    127.0.0.1 peer1 
                     127.0.0.1 peer2
             4.通过spring.profiles.active属性来分别启动peer1和peer2：
                     java -jar eureka-server-1.0.0.jar --spring.profiles.active=peer1
@@ -107,13 +107,75 @@
      
      
      配置详解
+         Eureka客户端的配置主要分为以下两个方面：
+            服务注册相关的配置信息，包括服务注册中心的地址、服务获取的间隔时间、可用区域等。
+            服务实例相关的配置信息，包括服务实例的名称、IP地址、端口号、健康检查路径等。
+         
+         
          服务注册类配置
+            Eureka治理体系中，指定注册中心，主要通过eureka.client.serviceUrl参数实现。配置值存储在HashMap类型中，并有一组默认值，默认值的key为
+            defaultZone、value为：http://localhost:8761/eureka/。
+              其他配置：
+                                参数名                             说明              默认值
+                enabled                启用Eureka客户端       true
+                registryFetchIntervalSeconds    从Eureka服务端获取注册间隔时间          30s
+                instanceInfoReplicationIntervalSeconds    更新实例信息变化到Eureka服务端的时间间隔          30s
+                initialInstanceInfoReplicationIntervalSeconds  初始化实例信息到Eureka服务端的时间间隔       40s
+                eurekaServiceUrlPollIntervalSeconds   轮询Eureka服务端地址更改时间间隔。                               300s
+                                                   （当与springconfig配合动态刷新Eureka的serviceUrl地址需注意）
+                eurekaServerReadTimeoutSeconds    读取EurekaServer信息的超时时间                         8s
+                eurekaServerConnectTimeoutSeconds   连接EurekaServer超时时间                       5s
+                eurekaServerTotalConnections   从Eureka客户端到所有Eureka服务端的连接总数       200
+                eurekaServerTotalConnectionPerHost   从Eureka客户端到所有Eureka服务端主机的连接总数     50
+                eurekaConnectionIdleTimeoutSeconds   Eureka服务端连接的空闲关闭时间                   30
+                heartbeatExecutorThreadPoolSize     心跳连接池的初始化线程数                       2
+                heartbeatExecutorExponentialBackOffBound    心跳超时重试延迟时间的最大乘数值         10
+                cacheRefreshExecutorThreadPoolSize    缓存刷新线程池的初始化线程数                2
+                chcheRefreshExecutorExpoentialBackOffBound     缓存刷新重试延迟时间的最大乘数值     10
+                registerWithEureka               是否要将自身的实例信息注册到Eureka服务端               true
+                preferSameZoneEureka            是否偏好使用处于相同Zone的Eureka服务端               true
+                filterOnlyUpInstances           获取实例时是否过滤，仅保留UP状态的实例               true
+                fetchRegistry                  是否从Eureka服务端获取注册信息                    true
+                
+                
         
          服务实例类配置
-     
+            元数据
+              Eureka客户端在向服务注册中心发送注册请求时，用来描述自身服务信息的对象，其中包含了一些标准化的元数据，如服务名称、实例名称、实例IP、实例
+              端口等。
+              
+            实例名配置
+              实例名，即InstanceInfo中的instanceId参数，它是区分同一服务中不同实例的唯一标识。
+              
+            端点配置
+              在服务正常运作情况下，需要确保Eureka客户端的/health端点在发送元数据的时候，是能够被注册中心访问到。否则服务注册中心不会根据应用健康
+              来更改状态。此时需要在/info 、/health端点添加前缀信息。
+                
+                    eureka.instance.statusPageUrlPath=${management.context-path}/info
+                    eureka.instance.statusPageUrlPath=${management.context-path}/health
+            健康检测
+              默认情况下，Eureka依靠客户端心跳的方式来保持服务实例的存活。由于服务应用有一些其他外部资源依赖，如数据库、缓存、消息代理等，当应用与外
+              部资源无法连通之时，客户端心跳正常已无意义。在Spring Cloud Eureka中，可以通过简单配置，把Eureka客户端的健康检测交给spring-boot-actuator
+              模块的/health端点，以实现更加全面的健康状态维护。配置步骤为：
+                 1.在pom.xml中引入spring-boot-starter-actuator模块依赖
+                 2.配置文件application.properties中增加参数配置eureka.client.healthcheck.enable=true
+                 3.客户端端点变动，参照之前修改。
+              
      
      跨平台支持
-     
+        除了Java客户端外，如eureka-js-client、python-eureka等。
 
-
+        通信协议:
+          默认情况下，Eureka使用Jersey和XStream配合JSON作为Server与Client之间的通信协议。
+          Jersey是JAX-RS的参考实现，包含三个主要部分：
+            核心服务器：通过JSR311中标准化的注释和API标准化，可以用直观方式开发RESTful Web服务
+            核心客户端：Jsersey客户端API帮助与REST服务通信
+            集成：Jersey还可以集成Spring、Guice、Apache Abdera的库
+          
+          
+          
+          
+          
+          
+          
 
