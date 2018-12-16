@@ -1,4 +1,90 @@
 第四章  
+    客户端负载均衡：Spring Cloud Ribbon
+    
+    
+    Spring Cloud Ribbon是一个基于HTTP和TCP的客户端负载均衡工具，基于NetFlix Ribbon实现。通过Spring Cloud的封装，可以将面对服务的REST模板请求自动
+    转为客户端负载均衡的服务调用。Spring Cloud Ribbon虽然只是一个工具类框架，几乎存在于每个Spring Cloud构建的微服务和基础设施中。因为微服务的调用，
+    API网关的请求转发等内容，实际上都是通过Ribbon来实现的。
+    
+    
+    
+    客户端负载均衡
+        负载均衡是系统架构中非常重要并不得不去实施的内容。因为负载均衡是对系统的高可用、网络压力的缓解和处理能力扩容的重要手段之一。
+        普通负载均衡架构方式:
+        
+                  客户端   --->    负载均衡设备     ---> 服务端1
+                                                  ---> 服务端2
+                                                  ---> 服务端3
+        
+        客户端负载均衡不同点在于：所有客户端节点都要维护者自己访问的服务端清单，而这些服务端的清单来自于服务注册中心。
+        Spring Cloud Ribbon的封装很简单，只有两步：
+            1.服务提供者只需要启动多个服务实例并注册到一个注册中心或是多个相关的服务注册中心。
+            2.服务消费者直接通过被@LoadBalanceed注解修饰过的RestTemplate来实现面向服务的接口调用。
+            
+   RestTemplate详解
+      在RestTemplate中，对GET请求可以通过以下两种方法调用实现。
+      1.getForEntity函数。该方法返回为ResponseEntity，该对象是Spring对HTTP请求响应的封装，其中存储了HTTP的几个重要元素，比如HTTP请求状态码的枚举
+      对象HttpStatus（400、400），其父类HttpEntity中还存储着HTTP请求的头信息对象HttpHeaders以及泛型类型的请求体对象。
+          getForEntity提供了三种不同的重载实现：
+              a.getForEntity（String url， Class ResponseType， Object urlVariables)
+              b.getForEntity(String url, Class responseType, Map urlVariables)
+              c.getForEntity(URI url, Class responseType)
+      
+      2.getForObject函数，实现直接返回包装好的对象内容。
+          getForObject也提供了三种不同的重载实现：
+              a.getObject(String url， Class ResponseType， Object urlVariables)
+              b.getObject(String url, Class responseType, Map urlVariables)
+              c.getObject(URI url, Class responseType)
+   
+      POST 请求（同GET请求）：
+          postForEntity和postForObject函数同上。
+          
+      PUT请求的三种重载方法：
+              a.put(String url， Class ResponseType， Object urlVariables)
+              b.put(String url, Class responseType, Map urlVariables)
+              c.put(URI url, Class responseType)
+      DELETE请求：
+              delete(String url, Object urlVariables)
+              delete(String url, Map urlVariables)
+              delete(URI url)
+   
+      
+   源码分析：
+      从@LoadBalanced注解源码的注释中可以得知，该注解来给RestTemplate做标记，以使负载均衡客户端（LoadBalancedrClient）来配置。
+      
+          LoadBalanceerClient是Spring Cloud中定义的一个接口：
+              public interface LoadBalancerClient  {
+                  ServiceInstance choose(String serviceId);
+                  
+                  <T> T execute(String serviceId, LoadBalancerRequest<T> request) throws IOException;
+                  
+                  URI reconstructURI(ServiceInstance instance, URI original);
+              
+              }
+      定义的抽象方法能力分别为：
+          1.从负载均衡中选择一个对应的服务实例
+          2.使用负载均衡器中挑选的服务实例来执行请求内容
+          3.为系统构建一个合适的host:port形式的URI
+   
+   
+   
+   
+   
+   
+   
+   
+   
+        
+    
+    
+
+
+
+
+
+
+
+
 
 
 
